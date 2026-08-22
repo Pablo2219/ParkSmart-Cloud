@@ -25,9 +25,11 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = (
         "http://127.0.0.1:5500,http://localhost:5500,"
-        "http://127.0.0.1:8000,http://localhost:8000"
+        "http://127.0.0.1:8000,http://localhost:8000,"
+        "http://127.0.0.1:8080,http://localhost:8080,"
+        "http://127.0.0.1:3000,http://localhost:3000"
     )
-    FRONTEND_URL: str = "http://127.0.0.1:5500"
+    FRONTEND_URL: str = "http://127.0.0.1:8080"
 
     NOTIFICATION_MODE: str = "SIMULATION"
     DEFAULT_PHONE_COUNTRY_CODE: str = "+506"
