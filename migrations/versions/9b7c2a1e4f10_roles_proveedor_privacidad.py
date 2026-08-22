@@ -14,6 +14,8 @@ down_revision: Union[str, Sequence[str], None] = "6f68b132cbc8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+ADMIN_HASH = "$argon2id$v=19$m=65536,t=3,p=4$h72JsZmHx9KDqnEgnGOW/Q$hQyD/+R06mCF2TSars4TGlNhJ5hW/bwtkTDhsZaAfkM"
+
 
 def upgrade() -> None:
     op.create_table(
@@ -53,6 +55,12 @@ def upgrade() -> None:
     op.add_column("espacio", sa.Column("longitud", sa.Numeric(10, 7), nullable=True))
 
     op.execute("INSERT INTO rol (nombreRol, descripcion, estado) SELECT 'PROVEEDOR', 'Usuario encargado de ofrecer y administrar servicios de parqueo', 'ACTIVO' WHERE NOT EXISTS (SELECT 1 FROM rol WHERE nombreRol = 'PROVEEDOR')")
+    op.execute(
+        "INSERT INTO usuario (idRol, nombreUsuario, correoElectronico, contrasenaHash, estado, aceptaPrivacidad) "
+        "SELECT idRol, 'admin', 'admin@parksmart.com', :hash, 'ACTIVO', 1 FROM rol "
+        "WHERE nombreRol='ADMINISTRADOR' AND NOT EXISTS (SELECT 1 FROM usuario WHERE nombreUsuario='admin')",
+        {"hash": ADMIN_HASH},
+    )
 
 
 def downgrade() -> None:
