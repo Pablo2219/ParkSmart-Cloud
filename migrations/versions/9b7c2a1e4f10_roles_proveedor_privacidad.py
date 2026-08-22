@@ -8,6 +8,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.mysql import BIGINT
 
 revision: str = "9b7c2a1e4f10"
 down_revision: Union[str, Sequence[str], None] = "6f68b132cbc8"
@@ -17,10 +18,14 @@ depends_on: Union[str, Sequence[str], None] = None
 ADMIN_HASH = "$argon2id$v=19$m=65536,t=3,p=4$h72JsZmHx9KDqnEgnGOW/Q$hQyD/+R06mCF2TSars4TGlNhJ5hW/bwtkTDhsZaAfkM"
 
 
+def mysql_bigint_unsigned():
+    return BIGINT(unsigned=True)
+
+
 def upgrade() -> None:
     op.create_table(
         "proveedor",
-        sa.Column("idProveedor", sa.BigInteger().with_variant(sa.BIGINT(unsigned=True), "mysql"), primary_key=True, autoincrement=True),
+        sa.Column("idProveedor", mysql_bigint_unsigned(), primary_key=True, autoincrement=True),
         sa.Column("identificacion", sa.String(20), nullable=False),
         sa.Column("nombreComercial", sa.String(120), nullable=False),
         sa.Column("telefono", sa.String(20), nullable=False),
@@ -38,14 +43,14 @@ def upgrade() -> None:
         mysql_engine="InnoDB",
     )
 
-    op.add_column("usuario", sa.Column("idProveedor", sa.BigInteger().with_variant(sa.BIGINT(unsigned=True), "mysql"), nullable=True))
+    op.add_column("usuario", sa.Column("idProveedor", mysql_bigint_unsigned(), nullable=True))
     op.add_column("usuario", sa.Column("aceptaPrivacidad", sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column("usuario", sa.Column("fechaConsentimiento", sa.DateTime(), nullable=True))
     op.add_column("usuario", sa.Column("versionPoliticaPrivacidad", sa.String(20), nullable=True))
     op.create_index("IX_Usuario_IdProveedor", "usuario", ["idProveedor"])
     op.create_foreign_key("FK_Usuario_Proveedor", "usuario", "proveedor", ["idProveedor"], ["idProveedor"], ondelete="SET NULL", onupdate="CASCADE")
 
-    op.add_column("sector", sa.Column("idProveedor", sa.BigInteger().with_variant(sa.BIGINT(unsigned=True), "mysql"), nullable=True))
+    op.add_column("sector", sa.Column("idProveedor", mysql_bigint_unsigned(), nullable=True))
     op.add_column("sector", sa.Column("latitud", sa.Numeric(10, 7), nullable=True))
     op.add_column("sector", sa.Column("longitud", sa.Numeric(10, 7), nullable=True))
     op.create_index("IX_Sector_IdProveedor", "sector", ["idProveedor"])
