@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
@@ -11,6 +12,8 @@ class EspacioResponse(BaseModel):
     tipoEspacio: str
     estado: str
     descripcion: Optional[str]
+    latitud: Optional[Decimal] = None
+    longitud: Optional[Decimal] = None
     fechaCreacion: datetime
     fechaActualizacion: datetime
 
