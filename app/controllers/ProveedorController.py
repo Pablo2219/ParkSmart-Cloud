@@ -63,8 +63,7 @@ def _catalogo(db: Session, proveedor_id: int):
 
 @router.get("/perfil")
 def perfil_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Session = Depends(get_db)):
-    proveedor_id = _proveedor_id(usuario)
-    proveedor = db.get(Proveedor, proveedor_id)
+    proveedor = db.get(Proveedor, _proveedor_id(usuario))
     if proveedor is None:
         raise HTTPException(status_code=404, detail="No se encontró el perfil del proveedor.")
     return {
@@ -81,13 +80,8 @@ def perfil_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: 
 
 
 @router.put("/perfil")
-def actualizar_perfil_proveedor(
-    datos: ProviderProfileUpdate,
-    usuario: Usuario = Depends(exigir_roles("PROVEEDOR")),
-    db: Session = Depends(get_db),
-):
-    proveedor_id = _proveedor_id(usuario)
-    proveedor = db.get(Proveedor, proveedor_id)
+def actualizar_perfil_proveedor(datos: ProviderProfileUpdate, usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Session = Depends(get_db)):
+    proveedor = db.get(Proveedor, _proveedor_id(usuario))
     if proveedor is None:
         raise HTTPException(status_code=404, detail="No se encontró el perfil del proveedor.")
     proveedor.nombreComercial = datos.nombreComercial.strip()
@@ -111,27 +105,21 @@ def mi_catalogo(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Sessi
 
 
 @router.post("/parqueos", status_code=status.HTTP_201_CREATED)
-def crear_parqueo_con_espacios(
-    datos: ProviderParkingCreate,
-    usuario: Usuario = Depends(exigir_roles("PROVEEDOR")),
-    db: Session = Depends(get_db),
-):
+def crear_parqueo_con_espacios(datos: ProviderParkingCreate, usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Session = Depends(get_db)):
     proveedor_id = _proveedor_id(usuario)
-    nombres = db.scalar(select(Sector.idSector).where(Sector.idProveedor == proveedor_id, Sector.nombreSector == datos.nombreSector.strip()))
-    if nombres is not None:
+    nombre_sector = datos.nombreSector.strip()
+    if db.scalar(select(Sector.idSector).where(Sector.idProveedor == proveedor_id, Sector.nombreSector == nombre_sector)) is not None:
         raise HTTPException(status_code=409, detail="Ya existe un sector con ese nombre en tu oferta.")
 
     codigos = [espacio.codigoEspacio.strip().upper() for espacio in datos.espacios]
     if len(codigos) != len(set(codigos)):
         raise HTTPException(status_code=409, detail="No podés repetir códigos de espacios dentro del mismo parqueo.")
-    if codigos:
-        existe_codigo = db.scalar(select(Espacio.idEspacio).where(Espacio.codigoEspacio.in_(codigos)))
-        if existe_codigo is not None:
-            raise HTTPException(status_code=409, detail="Uno de los códigos de espacio ya existe en ParkSmart.")
+    if codigos and db.scalar(select(Espacio.idEspacio).where(Espacio.codigoEspacio.in_(codigos))) is not None:
+        raise HTTPException(status_code=409, detail="Uno de los códigos de espacio ya existe en ParkSmart.")
 
     sector = Sector(
         idProveedor=proveedor_id,
-        nombreSector=datos.nombreSector.strip(),
+        nombreSector=nombre_sector,
         descripcion=datos.descripcion,
         ubicacion=datos.ubicacion,
         latitud=datos.latitud,
@@ -164,12 +152,7 @@ def crear_parqueo_con_espacios(
         db.rollback()
         raise HTTPException(status_code=409, detail="No se pudo registrar el parqueo completo. No se guardaron cambios parciales.")
 
-    return {
-        "mensaje": "Parqueo registrado correctamente.",
-        "sector": sector,
-        "espacios": espacios,
-        "catalogo": _catalogo(db, proveedor_id),
-    }
+    return {"mensaje": "Parqueo registrado correctamente.", "sector": sector, "espacios": espacios, "catalogo": _catalogo(db, proveedor_id)}
 
 
 @router.post("/sectores", status_code=status.HTTP_201_CREATED)
@@ -177,15 +160,7 @@ def crear_sector(datos: ProviderSectorCreate, usuario: Usuario = Depends(exigir_
     proveedor_id = _proveedor_id(usuario)
     if db.scalar(select(Sector.idSector).where(Sector.idProveedor == proveedor_id, Sector.nombreSector == datos.nombreSector.strip())) is not None:
         raise HTTPException(status_code=409, detail="Ya existe un sector con ese nombre en tu oferta.")
-    sector = Sector(
-        idProveedor=proveedor_id,
-        nombreSector=datos.nombreSector.strip(),
-        descripcion=datos.descripcion,
-        ubicacion=datos.ubicacion,
-        latitud=datos.latitud,
-        longitud=datos.longitud,
-        estado="ACTIVO",
-    )
+    sector = Sector(idProveedor=proveedor_id, nombreSector=datos.nombreSector.strip(), descripcion=datos.descripcion, ubicacion=datos.ubicacion, latitud=datos.latitud, longitud=datos.longitud, estado="ACTIVO")
     db.add(sector)
     try:
         db.commit()
@@ -204,16 +179,7 @@ def crear_espacio(datos: ProviderSpaceCreate, usuario: Usuario = Depends(exigir_
         raise HTTPException(status_code=404, detail="El sector no pertenece al proveedor.")
     if db.scalar(select(Espacio.idEspacio).where(Espacio.codigoEspacio == datos.codigoEspacio.strip().upper())) is not None:
         raise HTTPException(status_code=409, detail="El código del espacio ya existe.")
-
-    espacio = Espacio(
-        idSector=datos.idSector,
-        codigoEspacio=datos.codigoEspacio.strip().upper(),
-        tipoEspacio=datos.tipoEspacio,
-        descripcion=datos.descripcion,
-        latitud=datos.latitud,
-        longitud=datos.longitud,
-        estado="DISPONIBLE",
-    )
+    espacio = Espacio(idSector=datos.idSector, codigoEspacio=datos.codigoEspacio.strip().upper(), tipoEspacio=datos.tipoEspacio, descripcion=datos.descripcion, latitud=datos.latitud, longitud=datos.longitud, estado="DISPONIBLE")
     db.add(espacio)
     try:
         db.commit()
@@ -227,13 +193,7 @@ def crear_espacio(datos: ProviderSpaceCreate, usuario: Usuario = Depends(exigir_
 @router.get("/reservas")
 def reservas_del_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Session = Depends(get_db)):
     proveedor_id = _proveedor_id(usuario)
-    filas = db.execute(
-        select(Reserva, Espacio, Sector)
-        .join(Espacio, Reserva.idEspacio == Espacio.idEspacio)
-        .join(Sector, Espacio.idSector == Sector.idSector)
-        .where(Sector.idProveedor == proveedor_id)
-        .order_by(Reserva.fechaInicioReserva.desc())
-    ).all()
+    filas = db.execute(select(Reserva, Espacio, Sector).join(Espacio, Reserva.idEspacio == Espacio.idEspacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id).order_by(Reserva.fechaInicioReserva.desc())).all()
     return [
         {
             "idReserva": reserva.idReserva,
@@ -254,28 +214,22 @@ def reservas_del_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR"))
 @router.get("/billetera")
 def billetera_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Session = Depends(get_db)):
     proveedor_id = _proveedor_id(usuario)
-    base = (
+    pagos_query = (
         select(Pago)
         .join(Ocupacion, Pago.idOcupacion == Ocupacion.idOcupacion)
         .join(Reserva, Ocupacion.idReserva == Reserva.idReserva)
         .join(Espacio, Reserva.idEspacio == Espacio.idEspacio)
         .join(Sector, Espacio.idSector == Sector.idSector)
-        .where(Sector.idProveedor == proveedor_id)
+        .where(Sector.idProveedor == proveedor_id, Pago.estado == "PAGADO")
     )
-    total_pagado = db.scalar(select(func.coalesce(func.sum(Pago.montoTotal), 0)).select_from(base.subquery())) or 0
-    pagos_pagados = db.scalars(base.where(Pago.estado == "PAGADO").order_by(Pago.fechaPago.desc())).all()
+    pagos_pagados = db.scalars(pagos_query.order_by(Pago.fechaPago.desc())).all()
+    total_pagado = sum((Decimal(str(p.montoTotal or 0)) for p in pagos_pagados), Decimal("0.00"))
     return {
-        "totalPagado": Decimal(str(total_pagado)),
+        "totalPagado": total_pagado,
         "cantidadPagos": len(pagos_pagados),
         "movimientos": [
-            {
-                "idPago": p.idPago,
-                "codigoPago": p.codigoPago,
-                "montoTotal": p.montoTotal,
-                "estado": p.estado,
-                "metodoPago": p.metodoPago,
-                "fechaPago": p.fechaPago,
-            } for p in pagos_pagados[:50]
+            {"idPago": p.idPago, "codigoPago": p.codigoPago, "montoTotal": p.montoTotal, "estado": p.estado, "metodoPago": p.metodoPago, "fechaPago": p.fechaPago}
+            for p in pagos_pagados[:50]
         ],
     }
 
@@ -284,13 +238,7 @@ def billetera_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), d
 def resumen_proveedor(usuario: Usuario = Depends(exigir_roles("PROVEEDOR")), db: Session = Depends(get_db)):
     proveedor_id = _proveedor_id(usuario)
     sectores = db.scalar(select(func.count()).select_from(Sector).where(Sector.idProveedor == proveedor_id, Sector.estado == "ACTIVO")) or 0
-    espacios = db.scalar(
-        select(func.count()).select_from(Espacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id, Espacio.estado != "INACTIVO")
-    ) or 0
-    disponibles = db.scalar(
-        select(func.count()).select_from(Espacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id, Espacio.estado == "DISPONIBLE")
-    ) or 0
-    reservas = db.scalar(
-        select(func.count()).select_from(Reserva).join(Espacio, Reserva.idEspacio == Espacio.idEspacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id)
-    ) or 0
+    espacios = db.scalar(select(func.count()).select_from(Espacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id, Espacio.estado != "INACTIVO")) or 0
+    disponibles = db.scalar(select(func.count()).select_from(Espacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id, Espacio.estado == "DISPONIBLE")) or 0
+    reservas = db.scalar(select(func.count()).select_from(Reserva).join(Espacio, Reserva.idEspacio == Espacio.idEspacio).join(Sector, Espacio.idSector == Sector.idSector).where(Sector.idProveedor == proveedor_id)) or 0
     return {"sectores": sectores, "espacios": espacios, "disponibles": disponibles, "reservas": reservas}
