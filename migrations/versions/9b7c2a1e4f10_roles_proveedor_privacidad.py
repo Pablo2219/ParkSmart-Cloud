@@ -57,10 +57,13 @@ def upgrade() -> None:
     op.execute("INSERT INTO rol (nombreRol, descripcion, estado) SELECT 'CLIENTE', 'Usuario que reserva espacios de parqueo', 'ACTIVO' WHERE NOT EXISTS (SELECT 1 FROM rol WHERE nombreRol = 'CLIENTE')")
     op.execute("INSERT INTO rol (nombreRol, descripcion, estado) SELECT 'ADMINISTRADOR', 'Administrador del sistema ParkSmart', 'ACTIVO' WHERE NOT EXISTS (SELECT 1 FROM rol WHERE nombreRol = 'ADMINISTRADOR')")
     op.execute("INSERT INTO rol (nombreRol, descripcion, estado) SELECT 'PROVEEDOR', 'Usuario encargado de ofrecer y administrar servicios de parqueo', 'ACTIVO' WHERE NOT EXISTS (SELECT 1 FROM rol WHERE nombreRol = 'PROVEEDOR')")
-    op.execute(
-        "INSERT INTO usuario (idRol, nombreUsuario, correoElectronico, contrasenaHash, estado, aceptaPrivacidad) "
-        "SELECT idRol, 'admin', 'admin@parksmart.com', :hash, 'ACTIVO', 1 FROM rol "
-        "WHERE nombreRol='ADMINISTRADOR' AND NOT EXISTS (SELECT 1 FROM usuario WHERE nombreUsuario='admin')",
+
+    op.get_bind().execute(
+        sa.text(
+            "INSERT INTO usuario (idRol, nombreUsuario, correoElectronico, contrasenaHash, estado, aceptaPrivacidad) "
+            "SELECT idRol, 'admin', 'admin@parksmart.com', :hash, 'ACTIVO', 1 FROM rol "
+            "WHERE nombreRol='ADMINISTRADOR' AND NOT EXISTS (SELECT 1 FROM usuario WHERE nombreUsuario='admin')"
+        ),
         {"hash": ADMIN_HASH},
     )
 
