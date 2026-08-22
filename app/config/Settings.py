@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     RESET_TOKEN_MINUTES: int = 15
     AUTH_DEBUG_RESET_TOKEN: bool = False
 
+    PRIVACY_POLICY_VERSION: str = "1.0"
+    DATA_CONTROLLER_NAME: str = "ParkSmart"
+    DATA_CONTROLLER_CONTACT: str = "privacidad@parksmart.local"
+
     CORS_ORIGINS: str = (
         "http://127.0.0.1:5500,http://localhost:5500,"
         "http://127.0.0.1:8000,http://localhost:8000"
@@ -41,11 +45,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.CORS_ORIGINS.split(",")
-            if origin.strip()
-        ]
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
     model_config = SettingsConfigDict(
         env_file=".env",
