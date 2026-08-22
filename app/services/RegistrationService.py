@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config.Settings import settings
 from app.models.Cliente import Cliente
 from app.models.Proveedor import Proveedor
 from app.models.Rol import Rol
@@ -12,8 +13,6 @@ from app.security.PasswordManager import crear_hash
 
 
 class RegistroService:
-    POLITICA_VERSION = "1.0"
-
     def registrar(self, db: Session, datos: RegisterRequest):
         if db.scalar(select(Usuario).where(Usuario.nombreUsuario == datos.nombreUsuario)):
             raise ValueError("El nombre de usuario ya está registrado.")
@@ -68,7 +67,7 @@ class RegistroService:
             estado="ACTIVO",
             aceptaPrivacidad=True,
             fechaConsentimiento=datetime.now(),
-            versionPoliticaPrivacidad=self.POLITICA_VERSION,
+            versionPoliticaPrivacidad=settings.PRIVACY_POLICY_VERSION,
         )
         db.add(usuario)
         db.commit()
@@ -81,7 +80,7 @@ class RegistroService:
             "rol": datos.rol,
             "idCliente": id_cliente,
             "idProveedor": id_proveedor,
-            "politicaPrivacidad": self.POLITICA_VERSION,
+            "politicaPrivacidad": settings.PRIVACY_POLICY_VERSION,
         }
 
 
