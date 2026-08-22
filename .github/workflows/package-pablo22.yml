@@ -3,6 +3,8 @@ name: Package Pablo22
 on:
   push:
     branches: ["Pablo22"]
+  pull_request:
+    branches: ["main"]
 
 jobs:
   package:
