@@ -1,0 +1,154 @@
+from datetime import datetime
+
+from sqlalchemy.orm import Session
+
+from app.repositories.OcupacionRepository import OcupacionRepository
+from app.repositories.PagoRepository import PagoRepository
+from app.schemas.pago.PagoCreate import PagoCreate
+from app.schemas.pago.PagoUpdate import PagoUpdate
+
+
+class PagoService:
+
+    def __init__(self, db: Session):
+        self.pago_repository = PagoRepository(db)
+        self.ocupacion_repository = OcupacionRepository(db)
+
+    def listar_pagos(self):
+        return self.pago_repository.listar()
+
+    def listar_pagos_pendientes(self):
+        return self.pago_repository.listar_pendientes()
+
+    def listar_pagos_por_ocupacion(self, idOcupacion: int):
+        ocupacion = self.ocupacion_repository.obtener_por_id(
+            idOcupacion
+        )
+
+        if ocupacion is None:
+            raise ValueError("La ocupacion no existe.")
+
+        return self.pago_repository.listar_por_ocupacion(
+            idOcupacion
+        )
+
+    def obtener_pago(self, idPago: int):
+        pago = self.pago_repository.obtener_por_id(idPago)
+
+        if pago is None:
+            raise ValueError("El pago no existe.")
+
+        return pago
+
+    def verificar_pago_vencido(self, idPago: int) -> bool:
+        pago = self.pago_repository.obtener_por_id(idPago)
+
+        if pago is None:
+            raise ValueError("El pago no existe.")
+
+        return self.pago_repository.verificar_pago_vencido(
+            idPago
+        )
+
+    def crear_pago(self, datos: PagoCreate):
+        ocupacion = self.ocupacion_repository.obtener_por_id(
+            datos.idOcupacion
+        )
+
+        if ocupacion is None:
+            raise ValueError("La ocupacion no existe.")
+
+        if ocupacion.estado != "FINALIZADA":
+            raise ValueError(
+                "Solo se puede generar pago para ocupaciones finalizadas."
+            )
+
+        pago_existente = (
+            self.pago_repository.obtener_activo_por_ocupacion(
+                datos.idOcupacion
+            )
+        )
+
+        if pago_existente is not None:
+            raise ValueError(
+                "Ya existe un pago registrado para esta ocupacion."
+            )
+
+        codigo_pago = self.generar_codigo_pago()
+
+        return self.pago_repository.crear(
+            datos,
+            codigo_pago
+        )
+
+    def actualizar_pago(
+        self,
+        idPago: int,
+        datos: PagoUpdate
+    ):
+        pago = self.pago_repository.obtener_por_id(idPago)
+
+        if pago is None:
+            raise ValueError("El pago no existe.")
+
+        if pago.estado == "PAGADO":
+            raise ValueError(
+                "No se puede modificar un pago ya confirmado."
+            )
+
+        return self.pago_repository.actualizar(
+            pago,
+            datos
+        )
+
+    def confirmar_pago(
+        self,
+        idPago: int,
+        datos: PagoUpdate
+    ):
+        pago = self.pago_repository.obtener_por_id(idPago)
+
+        if pago is None:
+            raise ValueError("El pago no existe.")
+
+        if pago.estado != "PENDIENTE":
+            raise ValueError(
+                "Solo se pueden confirmar pagos pendientes."
+            )
+
+        if self.pago_repository.verificar_pago_vencido(idPago):
+            self.pago_repository.marcar_vencido(pago)
+
+            raise ValueError(
+                "El pago ya supero el limite de 24 horas."
+            )
+
+        if datos.metodoPago is None:
+            raise ValueError(
+                "Debe indicar el metodo de pago."
+            )
+
+        return self.pago_repository.confirmar(
+            pago,
+            datos
+        )
+
+    def anular_pago(self, idPago: int):
+        pago = self.pago_repository.obtener_por_id(idPago)
+
+        if pago is None:
+            raise ValueError("El pago no existe.")
+
+        if pago.estado == "PAGADO":
+            raise ValueError(
+                "No se puede anular un pago confirmado."
+            )
+
+        return self.pago_repository.anular(pago)
+
+    def generar_codigo_pago(self):
+        fecha = datetime.now().strftime(
+            "%Y%m%d%H%M%S%f"
+        )
+
+        return f"PAG-{fecha}"

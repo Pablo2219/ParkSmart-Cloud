@@ -1,0 +1,64 @@
+# Variables de entorno y secretos
+.env
+.env.local
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# JavaScript
+node_modules/
+dist/
+build/
+
+# Visual Studio Code e IntelliJ
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs y archivos temporales
+*.log
+logs/
+tmp/
+*.tmp
+*.pid
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Certificados y archivos sensibles locales
+certs/
+secrets/
+
+# Datos locales
+mysql_data/
+# Infraestructura cloud: variables y artefactos locales
+terraform/*.tfvars
+!terraform/terraform.tfvars.example
+frontend/dist/
+.do/app.generated.yaml
+*.auto.tfvars

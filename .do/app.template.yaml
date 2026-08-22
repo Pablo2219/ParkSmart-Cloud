@@ -1,0 +1,149 @@
+name: parksmart-prod
+region: nyc
+
+services:
+  - name: api
+    image:
+      registry_type: DOCR
+      repository: parksmart-api
+      tag: latest
+      deploy_on_push:
+        enabled: true
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 8000
+    routes:
+      - path: /api
+    health_check:
+      http_path: /health/ready
+      initial_delay_seconds: 20
+      period_seconds: 15
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    liveness_health_check:
+      http_path: /health
+      initial_delay_seconds: 20
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      - key: ENVIRONMENT
+        value: production
+        scope: RUN_TIME
+      - key: ROOT_PATH
+        value: /api
+        scope: RUN_TIME
+      - key: DATABASE_URL
+        value: ${parksmart-db.DATABASE_URL}
+        scope: RUN_TIME
+        type: GENERAL
+      - key: DATABASE_CA_CERT
+        value: ${parksmart-db.CA_CERT}
+        scope: RUN_TIME
+        type: SECRET
+      - key: SECRET_KEY
+        value: __SECRET_KEY__
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_SECRET
+        value: __JWT_SECRET__
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_ALGORITHM
+        value: HS256
+        scope: RUN_TIME
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+        scope: RUN_TIME
+      - key: CORS_ORIGINS
+        value: ${web.PUBLIC_URL}
+        scope: RUN_TIME
+      - key: FRONTEND_URL
+        value: ${web.PUBLIC_URL}
+        scope: RUN_TIME
+      - key: NOTIFICATION_MODE
+        value: SIMULATION
+        scope: RUN_TIME
+    alerts:
+      - rule: CPU_UTILIZATION
+        operator: GREATER_THAN
+        value: 80
+        window: FIVE_MINUTES
+      - rule: MEM_UTILIZATION
+        operator: GREATER_THAN
+        value: 85
+        window: FIVE_MINUTES
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 3
+        window: FIVE_MINUTES
+
+  - name: web
+    image:
+      registry_type: DOCR
+      repository: parksmart-web
+      tag: latest
+      deploy_on_push:
+        enabled: true
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 8080
+    routes:
+      - path: /
+    envs:
+      - key: API_BASE_URL
+        value: ${api.PUBLIC_URL}
+        scope: RUN_TIME
+    health_check:
+      http_path: /
+      initial_delay_seconds: 10
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    image:
+      registry_type: DOCR
+      repository: parksmart-api
+      tag: latest
+    instance_size_slug: basic-xxs
+    run_command: python -m alembic upgrade head
+    envs:
+      - key: ENVIRONMENT
+        value: production
+        scope: RUN_TIME
+      - key: DATABASE_URL
+        value: ${parksmart-db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: MIGRATION_DATABASE_URL
+        value: ${parksmart-db.DATABASE_URL}
+        scope: RUN_TIME
+      - key: DATABASE_CA_CERT
+        value: ${parksmart-db.CA_CERT}
+        scope: RUN_TIME
+        type: SECRET
+      - key: SECRET_KEY
+        value: __SECRET_KEY__
+        scope: RUN_TIME
+        type: SECRET
+      - key: JWT_SECRET
+        value: __JWT_SECRET__
+        scope: RUN_TIME
+        type: SECRET
+
+databases:
+  - name: parksmart-db
+    engine: MYSQL
+    production: true
+    cluster_name: __DATABASE_CLUSTER_NAME__
+    db_name: __DATABASE_NAME__
+    db_user: __DATABASE_USER__
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED

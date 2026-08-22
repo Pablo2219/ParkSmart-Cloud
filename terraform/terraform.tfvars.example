@@ -1,0 +1,15 @@
+project_name  = "parksmart"
+environment   = "prod"
+region        = "nyc3"
+vpc_ip_range  = "10.20.0.0/24"
+registry_name = "cr-parksmart-prod"
+
+# Plan académico de menor costo:
+database_size       = "db-s-1vcpu-1gb"
+database_node_count = 1
+
+# Para demostrar alta disponibilidad real, si el presupuesto lo permite:
+# database_node_count = 2
+
+database_name = "parksmart"
+database_user = "parksmart_app"

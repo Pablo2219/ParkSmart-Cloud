@@ -1,0 +1,67 @@
+services:
+
+  db:
+    image: mysql:8.4
+    container_name: parksmart_db
+    restart: unless-stopped
+    command:
+      - --lower_case_table_names=1
+      - --log-bin-trust-function-creators=1
+    environment:
+      TZ: "America/Costa_Rica"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD no esta definido}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-parksmart}"
+      MYSQL_USER: "${MYSQL_USER:-parksmart_app}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD no esta definido}"
+      MYSQL_MIGRATION_USER: "${MYSQL_MIGRATION_USER:-parksmart_migrator}"
+      MYSQL_MIGRATION_PASSWORD: "${MYSQL_MIGRATION_PASSWORD:?MYSQL_MIGRATION_PASSWORD no esta definido}"
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - parksmart_mysql_data:/var/lib/mysql
+      - ./database/init/02_create_migrator.sh:/docker-entrypoint-initdb.d/02_create_migrator.sh:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  migrate:
+    build: .
+    container_name: parksmart_migrate
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      TZ: "America/Costa_Rica"
+      DATABASE_URL: "mysql+pymysql://${MYSQL_USER:-parksmart_app}:${MYSQL_PASSWORD:?MYSQL_PASSWORD no esta definido}@db:3306/${MYSQL_DATABASE:-parksmart}"
+      MIGRATION_DATABASE_URL: "mysql+pymysql://${MYSQL_MIGRATION_USER:-parksmart_migrator}:${MYSQL_MIGRATION_PASSWORD:?MYSQL_MIGRATION_PASSWORD no esta definido}@db:3306/${MYSQL_DATABASE:-parksmart}"
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+
+  api:
+    build: .
+    container_name: parksmart_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      TZ: "America/Costa_Rica"
+      DATABASE_URL: "mysql+pymysql://${MYSQL_USER:-parksmart_app}:${MYSQL_PASSWORD:?MYSQL_PASSWORD no esta definido}@db:3306/${MYSQL_DATABASE:-parksmart}"
+    ports:
+      - "8000:8000"
+
+volumes:
+  parksmart_mysql_data:

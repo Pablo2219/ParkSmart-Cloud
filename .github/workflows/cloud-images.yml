@@ -1,0 +1,47 @@
+name: Publicar imagenes cloud
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Iniciar sesion en Container Registry
+        run: doctl registry login --expiry-seconds 1200
+
+      - name: Obtener endpoint del registry
+        id: registry
+        shell: bash
+        run: |
+          ENDPOINT="$(doctl registry get --format Endpoint --no-header)"
+          echo "endpoint=${ENDPOINT}" >> "$GITHUB_OUTPUT"
+
+      - name: Construir y publicar API
+        env:
+          REGISTRY: ${{ steps.registry.outputs.endpoint }}
+        run: |
+          docker build -t "$REGISTRY/parksmart-api:${GITHUB_SHA}" -t "$REGISTRY/parksmart-api:latest" .
+          docker push "$REGISTRY/parksmart-api:${GITHUB_SHA}"
+          docker push "$REGISTRY/parksmart-api:latest"
+
+      - name: Construir y publicar frontend
+        env:
+          REGISTRY: ${{ steps.registry.outputs.endpoint }}
+        run: |
+          docker build -f Dockerfile.frontend -t "$REGISTRY/parksmart-web:${GITHUB_SHA}" -t "$REGISTRY/parksmart-web:latest" .
+          docker push "$REGISTRY/parksmart-web:${GITHUB_SHA}"
+          docker push "$REGISTRY/parksmart-web:latest"
