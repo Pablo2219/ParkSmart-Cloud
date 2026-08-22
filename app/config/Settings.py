@@ -29,7 +29,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8080,http://localhost:8080,"
         "http://127.0.0.1:3000,http://localhost:3000"
     )
-    FRONTEND_URL: str = "http://127.0.0.1:8080"
+    FRONTEND_URL: str = "http://127.0.0.1:5500"
 
     NOTIFICATION_MODE: str = "SIMULATION"
     DEFAULT_PHONE_COUNTRY_CODE: str = "+506"
@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_SMS_FROM: str = ""
     TWILIO_WHATSAPP_FROM: str = ""
+
+    # Facturación electrónica / proveedor externo. En local se simula si la URL está vacía.
+    BILLING_API_URL: str = ""
+    BILLING_API_KEY: str = ""
+    BILLING_API_TIMEOUT_SECONDS: int = 10
+    BILLING_MODE: str = "SIMULATION"
 
     @property
     def cors_origins(self) -> list[str]:
