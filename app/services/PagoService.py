@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.Espacio import Espacio
+from app.models.Ocupacion import Ocupacion
 from app.models.Reserva import Reserva
 from app.models.Sector import Sector
 from app.repositories.OcupacionRepository import OcupacionRepository
@@ -50,8 +51,7 @@ class PagoService:
             raise ValueError("La ocupacion no existe.")
         if ocupacion.estado != "FINALIZADA":
             raise ValueError("Solo se puede generar pago para ocupaciones finalizadas.")
-        pago_existente = self.pago_repository.obtener_activo_por_ocupacion(datos.idOcupacion)
-        if pago_existente is not None:
+        if self.pago_repository.obtener_activo_por_ocupacion(datos.idOcupacion) is not None:
             raise ValueError("Ya existe un pago registrado para esta ocupacion.")
         return self.pago_repository.crear(datos, self.generar_codigo_pago())
 
@@ -80,12 +80,11 @@ class PagoService:
             select(Sector.idProveedor)
             .join(Espacio, Espacio.idSector == Sector.idSector)
             .join(Reserva, Reserva.idEspacio == Espacio.idEspacio)
-            .join(self.ocupacion_repository.model, self.ocupacion_repository.model.idReserva == Reserva.idReserva)
-            .where(self.ocupacion_repository.model.idOcupacion == pago.idOcupacion)
-        ) if hasattr(self.ocupacion_repository, "model") else None
-
-        # La confirmación del pago no se revierte si el servicio externo falla.
-        # El adaptador devuelve SIMULADA en local y PENDIENTE_REINTENTO si el API externo no responde.
+            .join(Ocupacion, Ocupacion.idReserva == Reserva.idReserva)
+            .where(Ocupacion.idOcupacion == pago.idOcupacion)
+        )
+        # No se revierte un pago confirmado si el API externo falla.
+        # En local el adaptador trabaja en modo SIMULATION.
         facturacion_service.emitir_factura(pago, proveedor_id=proveedor_id)
         return pago
 
