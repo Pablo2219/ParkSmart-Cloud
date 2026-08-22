@@ -48,6 +48,8 @@ CREATE USER IF NOT EXISTS
     '${MYSQL_MIGRATION_USER}'@'%'
     IDENTIFIED BY '${migration_password_sql}';
 
+ALTER USER '${MYSQL_MIGRATION_USER}'@'%' IDENTIFIED BY '${migration_password_sql}';
+
 GRANT
     SELECT,
     INSERT,
