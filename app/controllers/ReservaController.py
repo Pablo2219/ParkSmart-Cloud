@@ -32,7 +32,9 @@ def mis_reservas(usuario: Usuario = Depends(exigir_roles("CLIENTE")), db: Sessio
 
 
 @router.get("/cliente/{idCliente}", response_model=List[ReservaResponse])
-def listar_reservas_por_cliente(idCliente: int, usuario: Usuario = Depends(exigir_roles("ADMINISTRADOR")), db: Session = Depends(get_db)):
+def listar_reservas_por_cliente(idCliente: int, usuario: Usuario = Depends(exigir_roles("CLIENTE", "ADMINISTRADOR")), db: Session = Depends(get_db)):
+    if usuario.rol.nombreRol == "CLIENTE" and usuario.idCliente != idCliente:
+        raise HTTPException(status_code=403, detail="No puedes consultar las reservas de otro cliente.")
     try:
         return ReservaService(db).listar_reservas_por_cliente(idCliente)
     except ValueError as error:
@@ -40,9 +42,12 @@ def listar_reservas_por_cliente(idCliente: int, usuario: Usuario = Depends(exigi
 
 
 @router.get("/{idReserva}", response_model=ReservaResponse)
-def obtener_reserva(idReserva: int, usuario: Usuario = Depends(exigir_roles("ADMINISTRADOR")), db: Session = Depends(get_db)):
+def obtener_reserva(idReserva: int, usuario: Usuario = Depends(exigir_roles("CLIENTE", "ADMINISTRADOR")), db: Session = Depends(get_db)):
     try:
-        return ReservaService(db).obtener_reserva(idReserva)
+        reserva = ReservaService(db).obtener_reserva(idReserva)
+        if usuario.rol.nombreRol == "CLIENTE" and reserva.idCliente != usuario.idCliente:
+            raise HTTPException(status_code=403, detail="No puedes consultar una reserva de otro cliente.")
+        return reserva
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error))
 

@@ -20,7 +20,11 @@ for item in ROOT.iterdir():
         shutil.copy2(item, target)
 
 (DIST / "config.js").write_text(
-    "window.PARKSMART_CONFIG = {apiBaseUrl: " + repr(API_BASE_URL) + "};\n",
+    "window.PARKSMART_CONFIG = {apiBaseUrl: " + repr(API_BASE_URL) + "};\n"
+    "const termsScript = document.createElement('script');\n"
+    "termsScript.src = 'js/terms.js';\n"
+    "termsScript.defer = true;\n"
+    "document.head.appendChild(termsScript);\n",
     encoding="utf-8",
 )
 print(f"Frontend preparado para API: {API_BASE_URL}")
