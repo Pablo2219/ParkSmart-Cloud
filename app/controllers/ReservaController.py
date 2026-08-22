@@ -4,126 +4,83 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.Session import get_db
+from app.models.Usuario import Usuario
 from app.schemas.reserva.ReservaCreate import ReservaCreate
 from app.schemas.reserva.ReservaUpdate import ReservaUpdate
 from app.schemas.reserva.ReservaResponse import ReservaResponse
+from app.security.Dependencies import exigir_roles
 from app.services.ReservaService import ReservaService
 
-
-router = APIRouter(
-    prefix="/reservas",
-    tags=["Reservas"]
-)
+router = APIRouter(prefix="/reservas", tags=["Reservas"])
 
 
 @router.get("/", response_model=List[ReservaResponse])
-def listar_reservas(db: Session = Depends(get_db)):
-    service = ReservaService(db)
-    return service.listar_reservas()
+def listar_reservas(usuario: Usuario = Depends(exigir_roles("ADMINISTRADOR")), db: Session = Depends(get_db)):
+    return ReservaService(db).listar_reservas()
 
 
 @router.get("/activas", response_model=List[ReservaResponse])
-def listar_reservas_activas(db: Session = Depends(get_db)):
-    service = ReservaService(db)
-    return service.listar_reservas_activas()
+def listar_reservas_activas(usuario: Usuario = Depends(exigir_roles("ADMINISTRADOR")), db: Session = Depends(get_db)):
+    return ReservaService(db).listar_reservas_activas()
+
+
+@router.get("/mis-reservas", response_model=List[ReservaResponse])
+def mis_reservas(usuario: Usuario = Depends(exigir_roles("CLIENTE")), db: Session = Depends(get_db)):
+    if not usuario.idCliente:
+        raise HTTPException(status_code=403, detail="La cuenta no tiene un cliente asociado.")
+    return ReservaService(db).listar_reservas_por_cliente(usuario.idCliente)
 
 
 @router.get("/cliente/{idCliente}", response_model=List[ReservaResponse])
-def listar_reservas_por_cliente(
-    idCliente: int,
-    db: Session = Depends(get_db)
-):
-    service = ReservaService(db)
-
+def listar_reservas_por_cliente(idCliente: int, usuario: Usuario = Depends(exigir_roles("ADMINISTRADOR")), db: Session = Depends(get_db)):
     try:
-        return service.listar_reservas_por_cliente(idCliente)
+        return ReservaService(db).listar_reservas_por_cliente(idCliente)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error)
-        )
+        raise HTTPException(status_code=404, detail=str(error))
 
 
 @router.get("/{idReserva}", response_model=ReservaResponse)
-def obtener_reserva(
-    idReserva: int,
-    db: Session = Depends(get_db)
-):
-    service = ReservaService(db)
-
+def obtener_reserva(idReserva: int, usuario: Usuario = Depends(exigir_roles("ADMINISTRADOR")), db: Session = Depends(get_db)):
     try:
-        return service.obtener_reserva(idReserva)
+        return ReservaService(db).obtener_reserva(idReserva)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error)
-        )
+        raise HTTPException(status_code=404, detail=str(error))
 
 
-@router.post(
-    "/",
-    response_model=ReservaResponse,
-    status_code=status.HTTP_201_CREATED
-)
-def crear_reserva(
-    datos: ReservaCreate,
-    db: Session = Depends(get_db)
-):
-    service = ReservaService(db)
-
+@router.post("/", response_model=ReservaResponse, status_code=201)
+def crear_reserva(datos: ReservaCreate, usuario: Usuario = Depends(exigir_roles("CLIENTE")), db: Session = Depends(get_db)):
+    if not usuario.idCliente or datos.idCliente != usuario.idCliente:
+        raise HTTPException(status_code=403, detail="Solo puedes crear reservas para tu propia cuenta.")
     try:
-        return service.crear_reserva(datos)
+        return ReservaService(db).crear_reserva(datos)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error)
-        )
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @router.put("/{idReserva}", response_model=ReservaResponse)
-def actualizar_reserva(
-    idReserva: int,
-    datos: ReservaUpdate,
-    db: Session = Depends(get_db)
-):
+def actualizar_reserva(idReserva: int, datos: ReservaUpdate, usuario: Usuario = Depends(exigir_roles("CLIENTE", "ADMINISTRADOR")), db: Session = Depends(get_db)):
     service = ReservaService(db)
-
     try:
+        reserva = service.obtener_reserva(idReserva)
+        if usuario.rol.nombreRol == "CLIENTE" and reserva.idCliente != usuario.idCliente:
+            raise HTTPException(status_code=403, detail="No puedes modificar una reserva de otro cliente.")
         return service.actualizar_reserva(idReserva, datos)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error)
-        )
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @router.put("/{idReserva}/cancelar", response_model=ReservaResponse)
-def cancelar_reserva(
-    idReserva: int,
-    db: Session = Depends(get_db)
-):
+def cancelar_reserva(idReserva: int, usuario: Usuario = Depends(exigir_roles("CLIENTE", "ADMINISTRADOR")), db: Session = Depends(get_db)):
     service = ReservaService(db)
-
     try:
+        reserva = service.obtener_reserva(idReserva)
+        if usuario.rol.nombreRol == "CLIENTE" and reserva.idCliente != usuario.idCliente:
+            raise HTTPException(status_code=403, detail="No puedes cancelar una reserva de otro cliente.")
         return service.cancelar_reserva(idReserva)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error)
-        )
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @router.delete("/{idReserva}", response_model=ReservaResponse)
-def eliminar_reserva(
-    idReserva: int,
-    db: Session = Depends(get_db)
-):
-    service = ReservaService(db)
-
-    try:
-        return service.cancelar_reserva(idReserva)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error)
-        )
+def eliminar_reserva(idReserva: int, usuario: Usuario = Depends(exigir_roles("CLIENTE", "ADMINISTRADOR")), db: Session = Depends(get_db)):
+    return cancelar_reserva(idReserva, usuario, db)

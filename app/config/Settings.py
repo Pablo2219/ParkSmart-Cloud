@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     AUTH_DEBUG_RESET_TOKEN: bool = False
 
     PRIVACY_POLICY_VERSION: str = "1.0"
+    TERMS_VERSION: str = "1.0"
     DATA_CONTROLLER_NAME: str = "ParkSmart"
     DATA_CONTROLLER_CONTACT: str = "privacidad@parksmart.local"
 

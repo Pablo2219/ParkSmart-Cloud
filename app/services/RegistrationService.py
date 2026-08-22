@@ -14,6 +14,10 @@ from app.security.PasswordManager import crear_hash
 
 class RegistroService:
     def registrar(self, db: Session, datos: RegisterRequest):
+        if datos.rol not in {"CLIENTE", "PROVEEDOR"}:
+            raise ValueError("Solo se permiten cuentas de cliente o proveedor.")
+        if not datos.aceptaPrivacidad or not datos.aceptaTerminos:
+            raise ValueError("Debes aceptar la política de privacidad y los términos y condiciones para crear la cuenta.")
         if db.scalar(select(Usuario).where(Usuario.nombreUsuario == datos.nombreUsuario)):
             raise ValueError("El nombre de usuario ya está registrado.")
         if db.scalar(select(Usuario).where(Usuario.correoElectronico == str(datos.correoElectronico))):
@@ -25,7 +29,6 @@ class RegistroService:
 
         id_cliente = None
         id_proveedor = None
-
         if datos.rol == "CLIENTE":
             if db.scalar(select(Cliente).where(Cliente.identificacion == datos.identificacion)):
                 raise ValueError("La identificación ya está registrada.")
@@ -57,6 +60,7 @@ class RegistroService:
             db.flush()
             id_proveedor = proveedor.idProveedor
 
+        ahora = datetime.now()
         usuario = Usuario(
             idRol=rol.idRol,
             idCliente=id_cliente,
@@ -66,8 +70,11 @@ class RegistroService:
             contrasenaHash=crear_hash(datos.contrasena),
             estado="ACTIVO",
             aceptaPrivacidad=True,
-            fechaConsentimiento=datetime.now(),
+            fechaConsentimiento=ahora,
             versionPoliticaPrivacidad=settings.PRIVACY_POLICY_VERSION,
+            aceptaTerminos=True,
+            fechaAceptacionTerminos=ahora,
+            versionTerminos=settings.TERMS_VERSION,
         )
         db.add(usuario)
         db.commit()
@@ -81,6 +88,7 @@ class RegistroService:
             "idCliente": id_cliente,
             "idProveedor": id_proveedor,
             "politicaPrivacidad": settings.PRIVACY_POLICY_VERSION,
+            "terminosVersion": settings.TERMS_VERSION,
         }
 
 
